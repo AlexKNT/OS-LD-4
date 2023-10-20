@@ -11,6 +11,24 @@ CRITICAL_SECTION g_CriticalSection;
 DWORD g_dwProcessId = 0;
 HANDLE g_hProcess = NULL;
 
+struct TBufItem { int time_in_user_mode; int time_in_kernel_mode; };
+
+constexpr int g_BUF_SIZE = 100;
+
+class TBuffer {
+private:
+    TBufItem buf[g_BUF_SIZE]; // masīvs datu glabāšanai
+    int head; // visvecāko datu pozīcija
+    CRITICAL_SECTION cs; // kritiska sekcija
+
+public:
+    TBuffer(); // konstruktors
+    ~TBuffer(); // destruktors
+    void Draw(HDC hdc, RECT rect); // kadra zīmēšana
+    void Put(TBufItem AItem); // datu ievietošana visvecāko datu vietā
+    void Clear(); // bufera attīrīšana
+
+};
 
 // Ziņojumu apstrādātāja prototips
 BOOL CALLBACK MainWndProc(HWND, UINT, WPARAM, LPARAM);
@@ -188,3 +206,13 @@ BOOL CALLBACK MainWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
 
 // tu – the percentage of time that the process consumes while working in user mode,
 // tk – the percentage of time that the process consumes while working in kernel mode.
+
+// Since the buffer will be used in different threads, thread-safety must be ensured.
+// This means that all public methods(except the constructor and destructor) must be placed in a critical section.
+// A critical section must be initialized in the constructor of the class, it must be deleted in the destructor, 
+// a critical section must be entered at the beginning of each opened method and exited at the end. 
+
+// To draw a frame with the Draw method, you need to review all positions of the buffer(starting from the head) and recalculate the coordinates of the screen point from the data from each position.
+// Then, if it is the first point, you need to move the pen to this point using the MoveToEx function, otherwise - draw a line on this point using the LineTo function.
+
+// 4.5
