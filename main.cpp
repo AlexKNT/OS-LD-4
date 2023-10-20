@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include "resource.h"
+#include <winuser.h>
 
 #pragma warning(disable : 4996)
 
@@ -144,11 +145,46 @@ BOOL CALLBACK MainWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
 
 
 // Critical sections
-// To ensure thread-safety, mutual exception problem has to be addressed. The simplest solution is critical sections (Windows only).
+// To ensure thread-safety, mutual exceptions have to be addressed. The simplest solution is critical sections (Windows only).
 // A critical section is a fragment (or fragments) of program code that can be executed by only one thread at any given time
+
 // To make a critical section, you need:
 // 1. declare a global variable of type CRITICAL_SECTION,
 // 2. at the beginning of the program, initialize this variable with the InitializeCriticalSection function,
 // 3. at the beginning of the critical section, call the EnterCriticalSection function,
 // 4. at the end of the critical section, call the LeaveCriticalSection function,
 // 5. at the end of the program, delete the critical section with the DeleteCriticalSection function.
+
+
+// Graphical device interface
+// The set of tools with which Win32 API programs can draw on the window surface is called the Graphics Device Interface (GDI). 
+// The work of GDI is based on the concept of device context (DC: Device Context). 
+// A device context is a Windows data structure that contains information about drawing attributes for visualization devices such as displays or printers. 
+// In Windows programs, all drawing operations are performed through the device context object, which contains interfaces for line, shape, and text drawing.
+
+// Before drawing, the program must request the device context. 
+// It can be done with winuser.h function GetDC to draw in a window.
+// After the drawing is finished, the device context must be released with the ReleaseDC function.
+
+//To tune the device context, drawing objects can be created and attached to it: a brush, pen, font, etc.
+
+//After setting the device context, you can use the drawing functions to draw the image elements (figures, lines, text).
+
+// Buffer creation
+// An array-based cyclic global FIFO buffer must be constructed to store information.
+// FIFO is I -> IIIIII -> I
+
+// A cyclic buffer has a Head. 
+// It is the position of the array with the oldest data. 
+// Whenever new data needs to be inserted, it must be written to the buffer Head. 
+// After writing the new data, the Head index number must be incremented by one.
+// Then the Head - 1 index will always contain the most recent data. 
+// After the data is written in the last position of the array, the Head of the buffer should be moved to the beginning of the array (Head = 0). 
+// A cyclic increment operation (Head = (Head + 1) % BUF_SIZE) can be used for this. 
+// Thus, the circular buffer is based on two variables: the array and the Head element index. 
+// Since multiple numbers must be stored in each position of the buffer, it is best to use a struct:
+
+// struct TBufItem {int tu; int tk;};
+
+// tu – the percentage of time that the process consumes while working in user mode,
+// tk – the percentage of time that the process consumes while working in kernel mode.
