@@ -5,6 +5,8 @@
 
 #pragma warning(disable : 4996)
 
+CRITICAL_SECTION g_CriticalSection;
+
 DWORD g_dwProcessId = 0;
 HANDLE g_hProcess = NULL;
 
@@ -120,3 +122,33 @@ BOOL CALLBACK MainWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
 // 5 The created thread must periodically receive information about the CPU time spent and write this information to the global buffer
 // 6 The IDD_MAINDIALOG from needs to read information from that buffer periodically and need to draw the next frame in IDC_GRAPH to make an animation.
 // 7 Working with the buffer would require making and utilizing critical sections
+
+
+// Program architecture
+
+// Process thread
+// 1 User selects a .exe file via IDC_BROWSE or types the name of the file in IDC_COMMANDLINE and then presses IDC_START
+// 2 The program creates a thread that runs the process that it reads from IDC_COMMANDLINE. 
+// 3 This thread runs the process
+// 4 The thread calculates the CPU time consumed by the process every 250 milliseconds and writes the calculated values to a global buffer.
+
+// The buffer
+// A buffer class is defined.
+// It is a thread-safe global cyclic FIFO singleton buffer that stores the time values from the thread
+// Thread safety is ensured with critical sections
+
+// Main Thread
+// The main thread is created automatically at program startup
+// It serves the main IDC_MAINDIALOG
+// It periodically reads data from the global buffer and draws on a IDC_GRAPH, creating an animation
+
+
+// Critical sections
+// To ensure thread-safety, mutual exception problem has to be addressed. The simplest solution is critical sections (Windows only).
+// A critical section is a fragment (or fragments) of program code that can be executed by only one thread at any given time
+// To make a critical section, you need:
+// 1. declare a global variable of type CRITICAL_SECTION,
+// 2. at the beginning of the program, initialize this variable with the InitializeCriticalSection function,
+// 3. at the beginning of the critical section, call the EnterCriticalSection function,
+// 4. at the end of the critical section, call the LeaveCriticalSection function,
+// 5. at the end of the program, delete the critical section with the DeleteCriticalSection function.
