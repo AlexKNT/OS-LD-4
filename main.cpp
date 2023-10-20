@@ -79,3 +79,12 @@ BOOL CALLBACK MainWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
 And resource contains
 Edit control IDC_COMMANDLINE, Button IDC_START, Button IDC_TERMINATE, Static text IDC_MAX, Static text IDC_MID, Static text IDC_MIN, Button IDOK, Button IDC_BROWSE
 */
+
+// TODO Task: Write a program that runs a process and outputs the dynamic graphics on the screentime consumed by these processes.
+// 1 Implement IDC_BROWSE
+// 2 Implement starting a process from IDC_COMMANDLINE. It should create a thread to run the process
+// 3 Implement the Terminate buttom
+// 4 Create a global buffer
+// 5 The created thread must periodically receive information about the CPU time spent and write this information to the global buffer
+// 6 The IDD_MAINDIALOG from needs to read information from that buffer periodically and need to draw the next frame in IDC_GRAPH to make an animation.
+// 7 Working with the buffer would require making and utilizing critical sections
