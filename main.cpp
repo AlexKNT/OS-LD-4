@@ -5,6 +5,7 @@
 #include <winuser.h>
 #include <processthreadsapi.h>
 #include <sysinfoapi.h>
+#include "TBuffer.h"
 
 #pragma warning(disable : 4996)
 
@@ -13,24 +14,7 @@ CRITICAL_SECTION g_CriticalSection;
 DWORD g_dwProcessId = 0;
 HANDLE g_hProcess = NULL;
 
-struct TBufItem { int time_in_user_mode; int time_in_kernel_mode; };
-
-constexpr int g_BUF_SIZE = 100;
-
-class TBuffer {
-private:
-    TBufItem buf[g_BUF_SIZE]; // masīvs datu glabāšanai
-    int head; // visvecāko datu pozīcija
-    CRITICAL_SECTION cs; // kritiska sekcija
-
-public:
-    TBuffer(); // konstruktors
-    ~TBuffer(); // destruktors
-    void Draw(HDC hdc, RECT rect); // kadra zīmēšana
-    void Put(TBufItem AItem); // datu ievietošana visvecāko datu vietā
-    void Clear(); // bufera attīrīšana
-
-};
+TBuffer g_Buffer;
 
 DWORD FileTimeToMilliseconds(FILETIME ft) {
     ULARGE_INTEGER i;
@@ -41,6 +25,7 @@ DWORD FileTimeToMilliseconds(FILETIME ft) {
 
 // Ziņojumu apstrādātāja prototips
 BOOL CALLBACK MainWndProc(HWND, UINT, WPARAM, LPARAM);
+
 // Galvenā funkcija
 // ja galvenā loga šablonam ir piešķirts resursa identifikators IDD_MAINDIALOG
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
@@ -49,6 +34,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
         MAKEINTRESOURCE(IDD_MAINDIALOG),
         NULL,
         DLGPROC(MainWndProc));
+
+    WNDCLASS wc = { 0 }; // klases struktūra, aizpildīta ar nullēm
+    wc.lpfnWndProc = GraphWndProc; // elementa ziņojumu apstrādāšanas funkcija
+    wc.lpszClassName = "GRAPH"; // elementa klases vārds
+    RegisterClass(&wc); // iereģistrēt klasi
     return 0;
 }
 
@@ -140,6 +130,23 @@ BOOL CALLBACK MainWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
     }
     return FALSE;
 }
+
+LRESULT CALLBACK GraphWndProc(
+    HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
+    switch (Msg) {
+    case WM_PAINT:
+        PAINTSTRUCT ps;
+        HDC dc = BeginPaint(hWnd, &ps); // pieprasīt ierīces kontekstu zīmēšanai
+        RECT rect;
+        GetClientRect(hWnd, &rect);
+
+        EndPaint(hWnd, &ps);
+        return 0;
+    }
+    return DefWindowProc(hWnd, Msg, wParam, lParam);
+
+}
+
 
 
 // TODO Task: Write a program that runs a process and outputs the dynamic graphics on the screentime consumed by these processes.
@@ -280,6 +287,82 @@ BOOL CALLBACK MainWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
 
 // Use custom control for graphics output. 
 // It allows you to create dialogue elements with non-standard appearance and behavior. 
+ 
 // To add a custom control element to the window, you need to perform the following steps
 
-// 1
+// 1 Write a message handling function for a new element
+// The message handling function must process the messages that will be sent to the control element. 
+// This function shall perform a role analogous to the MainWndProc message handling function of the main window. 
+// You can describe the response to different messages, but you must necessarily write a message WM_PAINT processing to draw an image of the element on the window surface. 
+// If the message has not been processed the system function DefWindowProc shall be called to provide the default response.
+
+// 2. Describe drawing a new element
+// The program code to draw the element shall be written in the WM_PAINT message response. 
+// It shall request the control the device context of the element with the BeginPaint function ,
+//  using the received device context to draw the appearance of the element and release the device context with the EndPaint function.
+
+// 3. Register a new class of control element
+// Register a window class for a new element at the beginning of the program (in the WinMain function) with the RegisterClass
+
+// 4. Place the element on the window template
+// Place an element of type Custom Control on the dialog template and specify the registered class name GRAPH.
+
+// 5. Register the class of the control element
+// At the end of the program (at the end of the WinMain function), unregister the window class of the control element with the function UnregisterClass :
+// UnregisterClass("GRAPH");
+
+
+/*
+3. Creating a new control class
+As described above, create and register a control element class for drawing a dynamic schedule:
+- Write a message handling function to describe the drawing of the graph (WM_PAINT message). For this, clear the background (draw a rectangle the size of the control) and call the buffer method Draw to display the current buffer state.
+- Register the class of the control element (GRAPH) at the beginning of the WinMain function.
+- Unregister the class of the control element (GRAPH) at the end of the WinMain function.
+*/
+
+
+/*
+4. Process service thread
+1. Create a global variable Terminate to store the thread completion flag.
+2. clear the termination request flag and buffer at the start of the thread.
+3. Before the thread loop starts, run the process (CreateProcess) with the command line from the main form and clear its hold. If the process fails to start, complete the thread
+4. Start the drawing timer for the main shape:
+SetTimer(MainWnd, NULL, 125, NULL);
+5. Disable the IDC_START button and enable the IDC_TERMINATE button on the main window. For this use the EnableWindow and GetDlgItem functions
+EnableWindow(MainWnd, GetDlgItem(MainWnd, IDC_START), false);
+EnableWindow(MainWnd, GetDlgItem(MainWnd, IDC_TERMINATE), true);
+6. Repeat the cycle until there is no thread completion request. In cycle:
+- Calculate the percentage of time consumed and post it to the global buffer,
+- check if the process is still running with GetExitCodeProcess and if the process has already finished - complete the cycle,
+- execute a pause (approx. 50 ms)
+7. after the cycle, if the process is still running - terminate it with TerminateProcess.
+8. Close the process.
+9. Stop the drawing timer on the main form:
+KillTimer(MainWnd, NULL);
+10. Enable the IDC_START button and disable the IDC_TERMINATE button on the main window.
+*/
+
+/*
+5. Response to pressing the IDC_START button - starting the process 
+Create a process service thread and close its handle.
+*/
+
+/*
+Response to IDC_TERMINATE button press - Process completion
+Terminate the process service thread with the Terminate request flag.
+*/
+
+/*
+* 6. Program completion (response to WM_DESTROY message
+1. Terminate the process service thread with the Terminate request flag.
+2. Execute a pause to allow the process thread to finish (approx. 10 ms).
+*/
+
+/*
+Animation (response to WM_TIMER message)
+Tell the operating system how the control element IDC_GRAPH has changed and needs to be redrawn. 
+This can be be done with the InvalidateRect function. 
+WM_PAINT message to the control element
+InvalidateRect(GetDlgItem(MainWnd, IDC_GRAPH), NULL, FALSE);
+
+*/

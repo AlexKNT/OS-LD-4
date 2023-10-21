@@ -128,9 +128,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="TBuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h" />
+    <ClInclude Include="TBuffer.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="OS-LD-4.rc" />
