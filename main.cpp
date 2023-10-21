@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include "resource.h"
 #include <winuser.h>
+#include <processthreadsapi.h>
+#include <sysinfoapi.h>
 
 #pragma warning(disable : 4996)
 
@@ -29,6 +31,13 @@ public:
     void Clear(); // bufera attīrīšana
 
 };
+
+DWORD FileTimeToMilliseconds(FILETIME ft) {
+    ULARGE_INTEGER i;
+    i.LowPart = ft.dwLowDateTime;
+    i.HighPart = ft.dwHighDateTime;
+    return i.QuadPart / 10000;
+}
 
 // Ziņojumu apstrādātāja prototips
 BOOL CALLBACK MainWndProc(HWND, UINT, WPARAM, LPARAM);
@@ -215,4 +224,62 @@ BOOL CALLBACK MainWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
 // To draw a frame with the Draw method, you need to review all positions of the buffer(starting from the head) and recalculate the coordinates of the screen point from the data from each position.
 // Then, if it is the first point, you need to move the pen to this point using the MoveToEx function, otherwise - draw a line on this point using the LineTo function.
 
-// 4.5
+
+// Coordinate point calculation
+// The relationship between the data and the coordinates of the screen point is linear. 
+// This means that in order to calculate the coordinates, you need to know two coefficients A and B, which must be calculated in advance.
+// For example, we need to recalculate data (n, t) to coordinate (x, y), where n – point number, t – point data (percentage of spent time), x, y – screen point coordinates.
+
+//Linear dependence between data (n, t) and coordinates (x, y) is described by formulas:
+// x = Axn + Bx
+// y = Ayt + By
+
+//The coefficients Ax, Bx, Ay and By can be determined from the known relations :
+// n = 0 → x = 0
+// n = MaxN → x = Width
+// t = 0 → y = Height
+// t = MaxT → y = 0
+
+// MaxN – maximum point number(MaxN = BUF_SIZE - 1),
+// MaxT – maximum reflected percentages(e.g.MaxT = 50 %),
+// Width – frame width,
+// Height – frame height.
+
+// To calculate the coefficients Ax and Bx, it is therefore necessary to solve the system of equations
+// 0 = Ax * 0 + Bx
+// Width = Ax * MaxN + Bx
+
+// From where:
+// Ax = Width / MaxN
+// Bx = 0
+
+// As such, to convert the point number n to the x-coordinate, use the formula:
+// x = Width / MaxN * n
+
+// Similarly, the coefficients Ay and By must be calculated and the formula for converting t to y determined.
+
+
+// Elapsed time calculation
+// To determine the time spent by a process, use the GetProcessTimes function. 
+// The time spent by the process is divided into two parts: how long the process worked in user time)and how long in kernel kernel time. 
+// Both times will be in FILETIME format, which contains two 32-bit parts. Together, these are 64-bit integers representing numbers of 100-nanosecond (0.1 microsecond or 10^-4 millisecond) intervals. 
+// Before processing this time, it must be converted to milliseconds.
+// You can use DWORD FileTimeToMilliseconds(FILETIME ft)
+
+// To determine the real-time interval, use GetTickCount function 
+
+// Thus, to calculate what part of the time the process spent on work, you need :
+// 1. Store running times: real_run_time1 = GetTickCount() and consumed time_in_user_mode1 and time_in_kernel_mode1
+// 2. After some time(for example, on the next step of the cycle), determine the real and consumed times again (real_run_time2, time_in_user_mode2 and time_in_kernel_mode2).
+// 3. Calculate the percentage of the time interval :
+// time_in_user_mode = 100 * (time_in_user_mode2 - time_in_user_mode1) / (real_run_time2 - real_run_time1)
+// time_in_kernel_mode = 100 * (time_in_kernel_mode2 - time_in_kernel_mode1) / (real_run_time2 - real_run_time1)
+
+
+// IDC_GRAPH
+
+// Use custom control for graphics output. 
+// It allows you to create dialogue elements with non-standard appearance and behavior. 
+// To add a custom control element to the window, you need to perform the following steps
+
+// 1
