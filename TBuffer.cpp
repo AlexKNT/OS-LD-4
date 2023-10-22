@@ -4,6 +4,12 @@
 TBuffer::TBuffer() {
     InitializeCriticalSection(&cs);
     head = 0; // Initialize the head to the beginning of the buffer
+
+    // Initialize the buf array to default values if needed
+    for (int i = 0; i < g_BUF_SIZE; i++) {
+        buf[i].time_in_user_mode = 0; // or any other default value
+        buf[i].time_in_kernel_mode = 0; // or any other default value
+    }
 }
 
 TBuffer::~TBuffer() {

@@ -26,19 +26,26 @@ DWORD FileTimeToMilliseconds(FILETIME ft) {
 // Ziņojumu apstrādātāja prototips
 BOOL CALLBACK MainWndProc(HWND, UINT, WPARAM, LPARAM);
 
+LRESULT CALLBACK GraphWndProc(
+    HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
+
 // Galvenā funkcija
 // ja galvenā loga šablonam ir piešķirts resursa identifikators IDD_MAINDIALOG
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
+
+    WNDCLASS wc = { 0 }; // klases struktūra, aizpildīta ar nullēm
+    wc.lpfnWndProc = GraphWndProc; // elementa ziņojumu apstrādāšanas funkcija
+    wc.lpszClassName = "GRAPH"; // elementa klases vārds
+    RegisterClass(&wc); // iereģistrēt klasi
+
     DialogBox(
         hInstance,
         MAKEINTRESOURCE(IDD_MAINDIALOG),
         NULL,
         DLGPROC(MainWndProc));
 
-    WNDCLASS wc = { 0 }; // klases struktūra, aizpildīta ar nullēm
-    wc.lpfnWndProc = GraphWndProc; // elementa ziņojumu apstrādāšanas funkcija
-    wc.lpszClassName = "GRAPH"; // elementa klases vārds
-    RegisterClass(&wc); // iereģistrēt klasi
+    UnregisterClass("GRAPH", hInstance);
+
     return 0;
 }
 
@@ -122,6 +129,10 @@ BOOL CALLBACK MainWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
             case IDC_TERMINATE:
                 TerminateRunningProcess();
                 return TRUE;
+
+            case IDC_COMMANDLINE:
+                //
+                return TRUE;
             }
         
     case WM_DESTROY: // ja tas ir pabeigšanas pieprasījums
@@ -142,18 +153,96 @@ LRESULT CALLBACK GraphWndProc(
 
         EndPaint(hWnd, &ps);
         return 0;
+
     }
-    return DefWindowProc(hWnd, Msg, wParam, lParam);
+        return DefWindowProc(hWnd, Msg, wParam, lParam);
+    
 
 }
 
+/*
+With resource.h containing a dialog with: IDD_MAINDIALOG, Edit Control IDC_COMMANDLINE, Button IDC_BROWSE, Button IDC_START, Button IDC_TERMINATE, Custom Control IDC_GRAPH with Class GRAPH
+TBuffer.h containing this code:
+#pragma once
+#include <windows.h>
+
+struct TBufItem {
+    int time_in_user_mode;
+    int time_in_kernel_mode;
+};
+
+constexpr int g_BUF_SIZE = 100;
+
+class TBuffer {
+private:
+    TBufItem buf[g_BUF_SIZE]; // Array for storing data
+    int head; // Position of the oldest data
+    CRITICAL_SECTION cs; // Critical section for thread safety
+
+public:
+    TBuffer(); // Constructor
+    ~TBuffer(); // Destructor
+    void Draw(HDC hdc, RECT rect); // Draw the buffer contents
+    void Put(TBufItem AItem); // Insert data at the head
+    void Clear(); // Clear the buffer
+};
+
+and TBuffer.cpp containing this code:
+#include "TBuffer.h"
+#include <windows.h>
+
+TBuffer::TBuffer() {
+    InitializeCriticalSection(&cs);
+    head = 0; // Initialize the head to the beginning of the buffer
+
+    // Initialize the buf array to default values if needed
+    for (int i = 0; i < g_BUF_SIZE; i++) {
+        buf[i].time_in_user_mode = 0; // or any other default value
+        buf[i].time_in_kernel_mode = 0; // or any other default value
+    }
+}
+
+TBuffer::~TBuffer() {
+    DeleteCriticalSection(&cs);
+}
+
+void TBuffer::Draw(HDC hdc, RECT rect) {
+    EnterCriticalSection(&cs);
+
+    // Draw the buffer contents here using hdc and rect
+
+    LeaveCriticalSection(&cs);
+}
+
+void TBuffer::Put(TBufItem AItem) {
+    EnterCriticalSection(&cs);
+
+    // Insert the data at the head
+    buf[head] = AItem;
+
+    // Increment the head and wrap around if needed
+    head = (head + 1) % g_BUF_SIZE;
+
+    LeaveCriticalSection(&cs);
+}
+
+void TBuffer::Clear() {
+    EnterCriticalSection(&cs);
+
+    // Clear the buffer by resetting the head
+    head = 0;
+
+    LeaveCriticalSection(&cs);
+}
+
+*/
 
 
 // TODO Task: Write a program that runs a process and outputs the dynamic graphics on the screentime consumed by these processes.
 // 1 Implement IDC_BROWSE DONE
 // 2 Implement starting a process from IDC_COMMANDLINE. It should create a thread to run the process DONE
 // 3 Implement the Terminate buttom DONE
-// 4 Create a global buffer
+// 4 Create a global buffer DONE
 // 5 The created thread must periodically receive information about the CPU time spent and write this information to the global buffer
 // 6 The IDD_MAINDIALOG from needs to read information from that buffer periodically and need to draw the next frame in IDC_GRAPH to make an animation.
 // 7 Working with the buffer would require making and utilizing critical sections
@@ -167,28 +256,10 @@ LRESULT CALLBACK GraphWndProc(
 // 3 This thread runs the process
 // 4 The thread calculates the CPU time consumed by the process every 250 milliseconds and writes the calculated values to a global buffer.
 
-// The buffer
-// A buffer class is defined.
-// It is a thread-safe global cyclic FIFO singleton buffer that stores the time values from the thread
-// Thread safety is ensured with critical sections
-
 // Main Thread
 // The main thread is created automatically at program startup
 // It serves the main IDC_MAINDIALOG
 // It periodically reads data from the global buffer and draws on a IDC_GRAPH, creating an animation
-
-
-// Critical sections
-// To ensure thread-safety, mutual exceptions have to be addressed. The simplest solution is critical sections (Windows only).
-// A critical section is a fragment (or fragments) of program code that can be executed by only one thread at any given time
-
-// To make a critical section, you need:
-// 1. declare a global variable of type CRITICAL_SECTION,
-// 2. at the beginning of the program, initialize this variable with the InitializeCriticalSection function,
-// 3. at the beginning of the critical section, call the EnterCriticalSection function,
-// 4. at the end of the critical section, call the LeaveCriticalSection function,
-// 5. at the end of the program, delete the critical section with the DeleteCriticalSection function.
-
 
 // Graphical device interface
 // The set of tools with which Win32 API programs can draw on the window surface is called the Graphics Device Interface (GDI). 
@@ -203,30 +274,6 @@ LRESULT CALLBACK GraphWndProc(
 //To tune the device context, drawing objects can be created and attached to it: a brush, pen, font, etc.
 
 //After setting the device context, you can use the drawing functions to draw the image elements (figures, lines, text).
-
-// Buffer creation
-// An array-based cyclic global FIFO buffer must be constructed to store information.
-// FIFO is I -> IIIIII -> I
-
-// A cyclic buffer has a Head. 
-// It is the position of the array with the oldest data. 
-// Whenever new data needs to be inserted, it must be written to the buffer Head. 
-// After writing the new data, the Head index number must be incremented by one.
-// Then the Head - 1 index will always contain the most recent data. 
-// After the data is written in the last position of the array, the Head of the buffer should be moved to the beginning of the array (Head = 0). 
-// A cyclic increment operation (Head = (Head + 1) % BUF_SIZE) can be used for this. 
-// Thus, the circular buffer is based on two variables: the array and the Head element index. 
-// Since multiple numbers must be stored in each position of the buffer, it is best to use a struct:
-
-// struct TBufItem {int tu; int tk;};
-
-// tu – the percentage of time that the process consumes while working in user mode,
-// tk – the percentage of time that the process consumes while working in kernel mode.
-
-// Since the buffer will be used in different threads, thread-safety must be ensured.
-// This means that all public methods(except the constructor and destructor) must be placed in a critical section.
-// A critical section must be initialized in the constructor of the class, it must be deleted in the destructor, 
-// a critical section must be entered at the beginning of each opened method and exited at the end. 
 
 // To draw a frame with the Draw method, you need to review all positions of the buffer(starting from the head) and recalculate the coordinates of the screen point from the data from each position.
 // Then, if it is the first point, you need to move the pen to this point using the MoveToEx function, otherwise - draw a line on this point using the LineTo function.
