@@ -150,9 +150,9 @@ LRESULT CALLBACK GraphWndProc(
 
 
 // TODO Task: Write a program that runs a process and outputs the dynamic graphics on the screentime consumed by these processes.
-// 1 Implement IDC_BROWSE
-// 2 Implement starting a process from IDC_COMMANDLINE. It should create a thread to run the process
-// 3 Implement the Terminate buttom
+// 1 Implement IDC_BROWSE DONE
+// 2 Implement starting a process from IDC_COMMANDLINE. It should create a thread to run the process DONE
+// 3 Implement the Terminate buttom DONE
 // 4 Create a global buffer
 // 5 The created thread must periodically receive information about the CPU time spent and write this information to the global buffer
 // 6 The IDD_MAINDIALOG from needs to read information from that buffer periodically and need to draw the next frame in IDC_GRAPH to make an animation.
@@ -364,5 +364,4 @@ Tell the operating system how the control element IDC_GRAPH has changed and need
 This can be be done with the InvalidateRect function. 
 WM_PAINT message to the control element
 InvalidateRect(GetDlgItem(MainWnd, IDC_GRAPH), NULL, FALSE);
-
 */

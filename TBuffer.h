@@ -1,20 +1,23 @@
 ﻿#pragma once
 #include <windows.h>
 
-struct TBufItem { int time_in_user_mode; int time_in_kernel_mode; };
-
-class TBuffer
-{
-private:
-    TBufItem buf[g_BUF_SIZE]; // masīvs datu glabāšanai
-    int head; // visvecāko datu pozīcija
-    CRITICAL_SECTION cs; // kritiska sekcija
-
-public:
-    TBuffer(); // konstruktors
-    ~TBuffer(); // destruktors
-    void Draw(HDC hdc, RECT rect); // kadra zīmēšana
-    void Put(TBufItem AItem); // datu ievietošana visvecāko datu vietā
-    void Clear(); // bufera attīrīšana
+struct TBufItem {
+    int time_in_user_mode;
+    int time_in_kernel_mode;
 };
 
+constexpr int g_BUF_SIZE = 100;
+
+class TBuffer {
+private:
+    TBufItem buf[g_BUF_SIZE]; // Array for storing data
+    int head; // Position of the oldest data
+    CRITICAL_SECTION cs; // Critical section for thread safety
+
+public:
+    TBuffer(); // Constructor
+    ~TBuffer(); // Destructor
+    void Draw(HDC hdc, RECT rect); // Draw the buffer contents
+    void Put(TBufItem AItem); // Insert data at the head
+    void Clear(); // Clear the buffer
+};
