@@ -160,6 +160,8 @@ LRESULT CALLBACK GraphWndProc(
 
 }
 
+// I'm pooooooooshing
+
 /*
 With resource.h containing a dialog with: IDD_MAINDIALOG, Edit Control IDC_COMMANDLINE, Button IDC_BROWSE, Button IDC_START, Button IDC_TERMINATE, Custom Control IDC_GRAPH with Class GRAPH
 TBuffer.h containing this code:
