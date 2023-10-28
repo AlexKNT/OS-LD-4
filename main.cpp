@@ -9,8 +9,6 @@
 
 #pragma warning(disable : 4996)
 
-CRITICAL_SECTION g_CriticalSection;
-
 DWORD g_dwProcessId = 0;
 HANDLE g_hProcess = NULL;
 
@@ -80,6 +78,41 @@ void TerminateRunningProcess() {
     }
 }
 
+constexpr int g_timer_interval = 250;
+DWORD WINAPI MonitorProcessThread(LPVOID lpParam) {
+    // Get the process command line from the IDC_COMMANDLINE edit control
+    HWND hWnd = (HWND)lpParam;
+    char commandLine[MAX_PATH];
+    GetDlgItemTextA(hWnd, IDC_COMMANDLINE, commandLine, MAX_PATH);
+
+    // Create the process
+    STARTUPINFO si = { sizeof(si) };
+    PROCESS_INFORMATION pi;
+    if (CreateProcessA(NULL, commandLine, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+        // Process has been created successfully
+        g_dwProcessId = pi.dwProcessId;
+        g_hProcess = pi.hProcess;
+
+        while (true) {
+            FILETIME creationTime, exitTime, kernelTime, userTime;
+            if (GetProcessTimes(g_hProcess, &creationTime, &exitTime, &kernelTime, &userTime)) {
+                TBufItem item;
+                item.time_in_user_mode = static_cast<int>(FileTimeToMilliseconds(userTime));
+                item.time_in_kernel_mode = static_cast<int>(FileTimeToMilliseconds(kernelTime));
+                g_Buffer.Put(item);
+            }
+
+            Sleep(g_timer_interval); // Sleep for the specified interval
+        }
+
+        // Close process handles when the thread exits
+        CloseHandle(g_hProcess);
+        CloseHandle(pi.hThread);
+    }
+
+    return 0;
+}
+
 // Ziņojumu apstrādātājs
 BOOL CALLBACK MainWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
     switch (Msg) { // pārbaudīt ziņojuma identifikatoru
@@ -94,27 +127,9 @@ BOOL CALLBACK MainWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
                 return TRUE;
 
             case IDC_START: // Ja bija uzspiesta Start poga (If the Start button was pressed)
-                g_dwProcessId = 0; // Iestatām sākumvērtību 0 (Set the initial value to 0)
-
-                // Iegūstam ievades lauka tekstu un saglabājam to mainīgajā szCommandLine (Get the text from the input field and store it in the szCommandLine variable)
-                char szCommandLine[MAX_PATH];
-                GetDlgItemTextA(hWnd, IDC_COMMANDLINE, szCommandLine, MAX_PATH);
-
-                STARTUPINFOA si;
-                PROCESS_INFORMATION pi;
-                ZeroMemory(&si, sizeof(si));
-                si.cb = sizeof(si);
-                ZeroMemory(&pi, sizeof(pi));
-
-                // Izveidojam jaunu procesu, izmantojot iegūto komandrindu (Create a new process using the provided command line)
-                if (CreateProcessA(NULL, szCommandLine, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-                    // Aizvērt iepriekšējā procesa turu, ja tas nav vienāds nullei (Close the previous process handle if it exists)
-                    TerminateRunningProcess();
-
-                    // Saglabāt jauna procesa turu globālajā mainīgajā (Save the new process handle in the global variable)
-                    g_dwProcessId = pi.dwProcessId;
-                    g_hProcess = pi.hProcess; // Store the process handle
-                    CloseHandle(pi.hThread);
+                {
+                    HANDLE hThread = CreateThread(NULL, 0, MonitorProcessThread, hWnd, 0, NULL);
+                    CloseHandle(hThread);
                 }
                 return TRUE;
 
@@ -190,11 +205,14 @@ public:
 };
 
 and TBuffer.cpp containing this code:
+
 #include "TBuffer.h"
 #include <windows.h>
 
+CRITICAL_SECTION g_CriticalSection;
+
 TBuffer::TBuffer() {
-    InitializeCriticalSection(&cs);
+    InitializeCriticalSection(&g_CriticalSection);
     head = 0; // Initialize the head to the beginning of the buffer
 
     // Initialize the buf array to default values if needed
@@ -205,11 +223,11 @@ TBuffer::TBuffer() {
 }
 
 TBuffer::~TBuffer() {
-    DeleteCriticalSection(&cs);
+    DeleteCriticalSection(&g_CriticalSection);
 }
 
 void TBuffer::Draw(HDC hdc, RECT rect) {
-    EnterCriticalSection(&cs);
+    EnterCriticalSection(&g_CriticalSection);
 
     // Draw the buffer contents here using hdc and rect
 
@@ -217,7 +235,7 @@ void TBuffer::Draw(HDC hdc, RECT rect) {
 }
 
 void TBuffer::Put(TBufItem AItem) {
-    EnterCriticalSection(&cs);
+    EnterCriticalSection(&g_CriticalSection);
 
     // Insert the data at the head
     buf[head] = AItem;
@@ -225,17 +243,18 @@ void TBuffer::Put(TBufItem AItem) {
     // Increment the head and wrap around if needed
     head = (head + 1) % g_BUF_SIZE;
 
-    LeaveCriticalSection(&cs);
+    LeaveCriticalSection(&g_CriticalSection);
 }
 
 void TBuffer::Clear() {
-    EnterCriticalSection(&cs);
+    EnterCriticalSection(&g_CriticalSection);
 
     // Clear the buffer by resetting the head
     head = 0;
 
-    LeaveCriticalSection(&cs);
+    LeaveCriticalSection(&g_CriticalSection);
 }
+
 
 */
 
