@@ -14,6 +14,8 @@ HANDLE g_hProcess = NULL;
 
 TBuffer g_Buffer;
 
+bool g_Terminate = false;
+
 DWORD FileTimeToMilliseconds(FILETIME ft) {
     ULARGE_INTEGER i;
     i.LowPart = ft.dwLowDateTime;
@@ -80,7 +82,6 @@ void TerminateRunningProcess() {
 
 constexpr int g_timer_interval = 250;
 DWORD WINAPI MonitorProcessThread(LPVOID lpParam) {
-    // Get the process command line from the IDC_COMMANDLINE edit control
     HWND hWnd = (HWND)lpParam;
     char commandLine[MAX_PATH];
     GetDlgItemTextA(hWnd, IDC_COMMANDLINE, commandLine, MAX_PATH);
@@ -88,22 +89,66 @@ DWORD WINAPI MonitorProcessThread(LPVOID lpParam) {
     // Create the process
     STARTUPINFO si = { sizeof(si) };
     PROCESS_INFORMATION pi;
+
     if (CreateProcessA(NULL, commandLine, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-        // Process has been created successfully
         g_dwProcessId = pi.dwProcessId;
         g_hProcess = pi.hProcess;
 
-        while (true) {
+        // Clear the buffer and Terminate flag at the start
+        g_Buffer.Clear();
+        g_Terminate = false;
+
+        // Disable the Start button and enable the Terminate button
+        EnableWindow(GetDlgItem(hWnd, IDC_START), false);
+        EnableWindow(GetDlgItem(hWnd, IDC_TERMINATE), true);
+
+        DWORD real_run_time1 = GetTickCount();
+        DWORD time_in_user_mode1 = 0;
+        DWORD time_in_kernel_mode1 = 0;
+
+        while (!g_Terminate) {
             FILETIME creationTime, exitTime, kernelTime, userTime;
+
             if (GetProcessTimes(g_hProcess, &creationTime, &exitTime, &kernelTime, &userTime)) {
-                TBufItem item;
-                item.time_in_user_mode = static_cast<int>(FileTimeToMilliseconds(userTime));
-                item.time_in_kernel_mode = static_cast<int>(FileTimeToMilliseconds(kernelTime));
-                g_Buffer.Put(item);
+                // Calculate the percentage of time consumed
+                DWORD real_run_time2 = GetTickCount();
+                DWORD time_in_user_mode2 = static_cast<int>(FileTimeToMilliseconds(userTime));
+                DWORD time_in_kernel_mode2 = static_cast<int>(FileTimeToMilliseconds(kernelTime));
+
+                DWORD time_interval = real_run_time2 - real_run_time1;
+                if (time_interval > 0) {
+                    int user_mode_percentage = static_cast<int>((time_in_user_mode2 - time_in_user_mode1) * 100 / time_interval);
+                    int kernel_mode_percentage = static_cast<int>((time_in_kernel_mode2 - time_in_kernel_mode1) * 100 / time_interval);
+
+                    TBufItem item;
+                    item.time_in_user_mode = user_mode_percentage;
+                    item.time_in_kernel_mode = kernel_mode_percentage;
+                    g_Buffer.Put(item);
+                }
+
+                real_run_time1 = real_run_time2;
+                time_in_user_mode1 = time_in_user_mode2;
+                time_in_kernel_mode1 = time_in_kernel_mode2;
             }
 
             Sleep(g_timer_interval); // Sleep for the specified interval
+
+            // Check if the process is still running
+            DWORD exitCode;
+            if (GetExitCodeProcess(g_hProcess, &exitCode) && exitCode != STILL_ACTIVE) {
+                // Process has finished, break out of the loop
+                break;
+            }
         }
+
+        // If the process is still running, terminate it
+        if (!g_Terminate) {
+            TerminateProcess(g_hProcess, 0);
+        }
+
+        // Enable the Start button and disable the Terminate button
+        EnableWindow(GetDlgItem(hWnd, IDC_START), true);
+        EnableWindow(GetDlgItem(hWnd, IDC_TERMINATE), false);
 
         // Close process handles when the thread exits
         CloseHandle(g_hProcess);
@@ -112,6 +157,8 @@ DWORD WINAPI MonitorProcessThread(LPVOID lpParam) {
 
     return 0;
 }
+
+
 
 // Ziņojumu apstrādātājs
 BOOL CALLBACK MainWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
@@ -264,7 +311,7 @@ void TBuffer::Clear() {
 // 2 Implement starting a process from IDC_COMMANDLINE. It should create a thread to run the process DONE
 // 3 Implement the Terminate buttom DONE
 // 4 Create a global buffer DONE
-// 5 The created thread must periodically receive information about the CPU time spent and write this information to the global buffer
+// 5 The created thread must periodically receive information about the CPU time spent and write this information to the global buffer DONE
 // 6 The IDD_MAINDIALOG from needs to read information from that buffer periodically and need to draw the next frame in IDC_GRAPH to make an animation.
 // 7 Working with the buffer would require making and utilizing critical sections
 
@@ -280,7 +327,7 @@ void TBuffer::Clear() {
 // Main Thread
 // The main thread is created automatically at program startup
 // It serves the main IDC_MAINDIALOG
-// It periodically reads data from the global buffer and draws on a IDC_GRAPH, creating an animation
+// It periodically reads data from the global buffer and draws on a IDC_GRAPH, creating an animation <-
 
 // Graphical device interface
 // The set of tools with which Win32 API programs can draw on the window surface is called the Graphics Device Interface (GDI). 
