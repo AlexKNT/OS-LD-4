@@ -86,6 +86,8 @@ DWORD WINAPI MonitorProcessThread(LPVOID lpParam) {
     char commandLine[MAX_PATH];
     GetDlgItemTextA(hWnd, IDC_COMMANDLINE, commandLine, MAX_PATH);
 
+    SetTimer(hWnd, 1, g_timer_interval, NULL);
+
     // Create the process
     STARTUPINFO si = { sizeof(si) };
     PROCESS_INFORMATION pi;
@@ -155,6 +157,8 @@ DWORD WINAPI MonitorProcessThread(LPVOID lpParam) {
         CloseHandle(pi.hThread);
     }
 
+    KillTimer(hWnd, 1);
+
     return 0;
 }
 
@@ -200,6 +204,11 @@ BOOL CALLBACK MainWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
     case WM_DESTROY: // ja tas ir pabeigšanas pieprasījums
         PostQuitMessage(0); // pabeigt programmu
         return TRUE;
+
+    case WM_TIMER:
+        // Redraw the IDC_GRAPH control to update the animation
+        InvalidateRect(GetDlgItem(hWnd, IDC_GRAPH), NULL, FALSE);
+        break;
     }
     return FALSE;
 }

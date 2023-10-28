@@ -10,11 +10,11 @@ constexpr int g_BUF_SIZE = 100;
 
 class TBuffer {
 private:
-    TBufItem buf[g_BUF_SIZE]; // Array for storing data
     int head; // Position of the oldest data
     CRITICAL_SECTION cs; // Critical section for thread safety
 
 public:
+    TBufItem buf[g_BUF_SIZE]; // Array for storing data
     TBuffer(); // Constructor
     ~TBuffer(); // Destructor
     void Draw(HDC hdc, RECT rect); // Draw the buffer contents
