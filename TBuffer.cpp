@@ -19,6 +19,10 @@ TBuffer::~TBuffer() {
 void TBuffer::Draw(HDC hdc, RECT rect) {
     EnterCriticalSection(&cs);
 
+    // Set the pen color to red
+    HPEN hRedPen = CreatePen(PS_SOLID, 1, RGB(255, 0, 0));
+    HPEN hOldPen = (HPEN)SelectObject(hdc, hRedPen);
+
     // Calculate the coefficients for mapping data to screen coordinates
     int MaxN = g_BUF_SIZE - 1;
     int MaxT = 100; // Assuming percentages are in the range [0, 100]
@@ -47,8 +51,13 @@ void TBuffer::Draw(HDC hdc, RECT rect) {
         prevY = y;
     }
 
+    // Restore the original pen and clean up
+    SelectObject(hdc, hOldPen);
+    DeleteObject(hRedPen);
+
     LeaveCriticalSection(&cs);
 }
+
 
 
 void TBuffer::Put(TBufItem AItem) {
