@@ -19,10 +19,37 @@ TBuffer::~TBuffer() {
 void TBuffer::Draw(HDC hdc, RECT rect) {
     EnterCriticalSection(&cs);
 
-    // Draw the buffer contents here using hdc and rect
+    // Calculate the coefficients for mapping data to screen coordinates
+    int MaxN = g_BUF_SIZE - 1;
+    int MaxT = 100; // Assuming percentages are in the range [0, 100]
+    int Width = rect.right - rect.left;
+    int Height = rect.bottom - rect.top;
+
+    double Ax = static_cast<double>(Width) / MaxN;
+    double Ay = -static_cast<double>(Height) / MaxT;
+    double Bx = 0;
+    double By = Height;
+
+    // Draw the animation using data from the buffer
+    int prevX = 0;
+    int prevY = static_cast<int>(By); // Initialize with the starting point
+
+    for (int i = 0; i < g_BUF_SIZE; ++i) {
+        int x = static_cast<int>(Ax * i + Bx);
+        int t = buf[i].time_in_user_mode; // Use user mode data for the animation
+        int y = static_cast<int>(Ay * t + By);
+
+        // Draw a line segment from the previous point to the current point
+        MoveToEx(hdc, prevX, prevY, NULL);
+        LineTo(hdc, x, y);
+
+        prevX = x;
+        prevY = y;
+    }
 
     LeaveCriticalSection(&cs);
 }
+
 
 void TBuffer::Put(TBufItem AItem) {
     EnterCriticalSection(&cs);
