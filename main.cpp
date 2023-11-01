@@ -168,6 +168,9 @@ DWORD WINAPI MonitorProcessThread(LPVOID lpParam) {
 BOOL CALLBACK MainWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
     switch (Msg) { // pārbaudīt ziņojuma identifikatoru
     case WM_INITDIALOG: // ja tas ir inicializācijas paziņojums
+
+        SetTimer(hWnd, 1, 250, NULL);
+
         // izpildīt inicializācijas darbības
         return TRUE;
     case WM_COMMAND: // ja tas ir paziņojums no vadības elementa
