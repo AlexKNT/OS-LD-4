@@ -19,9 +19,10 @@ TBuffer::~TBuffer() {
 void TBuffer::Draw(HDC hdc, RECT rect) {
     EnterCriticalSection(&cs);
 
-    // Set the pen color to red
-    HPEN hRedPen = CreatePen(PS_SOLID, 1, RGB(255, 0, 0));
-    HPEN hOldPen = (HPEN)SelectObject(hdc, hRedPen);
+    // Set the pen colors
+    HPEN hUserModePen = CreatePen(PS_SOLID, 1, RGB(255, 0, 0)); // Red pen for user mode
+    HPEN hKernelModePen = CreatePen(PS_SOLID, 1, RGB(0, 255, 0)); // Green pen for kernel mode
+    HPEN hOldPen;
 
     // Calculate the coefficients for mapping data to screen coordinates
     int MaxN = g_BUF_SIZE - 1;
@@ -36,27 +37,42 @@ void TBuffer::Draw(HDC hdc, RECT rect) {
 
     // Draw the animation using data from the buffer
     int prevX = 0;
-    int prevY = static_cast<int>(By); // Initialize with the starting point
+    int prevYUserMode = static_cast<int>(By); // Initialize with the starting point
+    int prevYKernelMode = static_cast<int>(By); // Initialize with the starting point
 
     for (int i = 0; i < g_BUF_SIZE; ++i) {
         int x = static_cast<int>(Ax * i + Bx);
-        int t = buf[i].time_in_user_mode; // Use user mode data for the animation
-        int y = static_cast<int>(Ay * t + By);
+        int tUserMode = buf[i].time_in_user_mode; // Use user mode data for the animation
+        int tKernelMode = buf[i].time_in_kernel_mode; // Use kernel mode data for the animation
 
-        // Draw a line segment from the previous point to the current point
-        MoveToEx(hdc, prevX, prevY, NULL);
-        LineTo(hdc, x, y);
+        int yUserMode = static_cast<int>(Ay * tUserMode + By);
+        int yKernelMode = static_cast<int>(Ay * tKernelMode + By);
+
+        // Draw a line segment from the previous point to the current point with the respective pen
+        if (i > 0) {
+            hOldPen = (HPEN)SelectObject(hdc, hUserModePen);
+            MoveToEx(hdc, prevX, prevYUserMode, NULL);
+            LineTo(hdc, x, yUserMode);
+            SelectObject(hdc, hOldPen);
+
+            hOldPen = (HPEN)SelectObject(hdc, hKernelModePen);
+            MoveToEx(hdc, prevX, prevYKernelMode, NULL);
+            LineTo(hdc, x, yKernelMode);
+            SelectObject(hdc, hOldPen);
+        }
 
         prevX = x;
-        prevY = y;
+        prevYUserMode = yUserMode;
+        prevYKernelMode = yKernelMode;
     }
 
-    // Restore the original pen and clean up
-    SelectObject(hdc, hOldPen);
-    DeleteObject(hRedPen);
+    // Clean up
+    DeleteObject(hUserModePen);
+    DeleteObject(hKernelModePen);
 
     LeaveCriticalSection(&cs);
 }
+
 
 
 
